@@ -175,6 +175,11 @@ spec:
                 unset "${UNKNOWNVAR}"
             done
 
+{{ if .Values.secretsFromVault }}
+            if [[ -f /vault/secrets/.env  ]]; then
+                source /vault/secrets/.env
+            fi
+{{ end }}
             touch {{ template "tstune_config" . | quote }}
             touch {{ template "wal_status_file" . | quote }}
 
@@ -246,7 +251,7 @@ spec:
         envFrom:
         - secretRef:
             name: {{ template "secrets_credentials" . }}
-            optional: false
+            optional: true
         - secretRef:
             name: {{ template "secrets_pgbackrest" . }}
             optional: true
@@ -294,9 +299,11 @@ spec:
         - mountPath: {{ template "scripts_dir" . }}
           name: timescaledb-scripts
           readOnly: true
+{{ if not .Values.secretsFromVault }}
         - mountPath: /etc/certificate
           name: certificate
           readOnly: true
+{{ end }}
         - name: socket-directory
           mountPath: {{ template "socket_directory" . }}
         {{ if .Values.callbacks.configMap -}}
@@ -325,9 +332,11 @@ spec:
               - |
                 while test -S {{ template "socket_directory" . }}/.s.PGSQL.5432; do sleep 1; done
         volumeMounts:
+{{ if not .Values.secretsFromVault }}
           - mountPath: /etc/certificate
             name: certificate
             readOnly: true
+{{ end }}
           - name: socket-directory
             mountPath: {{ template "socket_directory" . }}
             readOnly: false
@@ -390,7 +399,7 @@ spec:
         envFrom:
         - secretRef:
             name: {{ template "secrets_credentials" . }}
-            optional: false
+            optional: true
         - secretRef:
             name: {{ template "secrets_pgbackrest" . }}
             optional: false
@@ -473,10 +482,12 @@ spec:
           name: {{ template "timescaledb.fullname" . }}-pgbackrest
           defaultMode: 416 # 0640 permissions
           optional: true
+{{ if not .Values.secretsFromVault }}
       - name: certificate
         secret:
           secretName:  {{ template "secrets_certificate" . }}
           defaultMode: 416 # 0640 permissions
+{{ end }}
       - name: pgbackrest-bootstrap
         secret:
           secretName: {{ .Values.bootstrapFromBackup.secretName }}
