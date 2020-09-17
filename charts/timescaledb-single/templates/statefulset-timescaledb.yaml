@@ -175,15 +175,17 @@ spec:
                 unset "${UNKNOWNVAR}"
             done
 
-{{ if .Values.secretsFromVault }}
-            if [[ -f /vault/secrets/.env  ]]; then
-                source /vault/secrets/.env
-            fi
-{{ end }}
             touch {{ template "tstune_config" . | quote }}
             touch {{ template "wal_status_file" . | quote }}
 
+{{ if .Values.secretsFromVaultEnv }}
+            if [[ -f /vault/secrets/.env  ]]; then
+                source /vault/secrets/.env
+            fi
+            cp /vault/secrets/.pgpass ${HOME}/.pgpass
+{{ else }}
             echo "*:*:*:postgres:${PATRONI_SUPERUSER_PASSWORD}" >> ${HOME}/.pgpass
+{{ end }}
             chmod 0600 ${HOME}/.pgpass
 
             export PATRONI_POSTGRESQL_PGPASS="${HOME}/.pgpass.patroni"
@@ -299,7 +301,7 @@ spec:
         - mountPath: {{ template "scripts_dir" . }}
           name: timescaledb-scripts
           readOnly: true
-{{ if not .Values.secretsFromVault }}
+{{ if not .Values.secretsFromVaultCert }}
         - mountPath: /etc/certificate
           name: certificate
           readOnly: true
@@ -332,7 +334,7 @@ spec:
               - |
                 while test -S {{ template "socket_directory" . }}/.s.PGSQL.5432; do sleep 1; done
         volumeMounts:
-{{ if not .Values.secretsFromVault }}
+{{ if not .Values.secretsFromVaultCert }}
           - mountPath: /etc/certificate
             name: certificate
             readOnly: true
@@ -482,7 +484,7 @@ spec:
           name: {{ template "timescaledb.fullname" . }}-pgbackrest
           defaultMode: 416 # 0640 permissions
           optional: true
-{{ if not .Values.secretsFromVault }}
+{{ if not .Values.secretsFromVaultCert }}
       - name: certificate
         secret:
           secretName:  {{ template "secrets_certificate" . }}
